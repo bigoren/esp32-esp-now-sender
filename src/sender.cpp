@@ -14,26 +14,42 @@
 
 #define START_INPUT_PIN 2
 #define QUE_INPUT_PIN 4
-#define MAX_LUM 35
+#define MAX_LUM 28
+#define MID_LUM 6
 #define MIN_LUM 1
-#define MAX_EVENT_CNT 15
+#define MAX_EVENT_CNT 27
 
-// uint8_t receiver_mac[] = {0x36, 0x33, 0x33, 0x33, 0x33, 0x33};
-// uint8_t receiver_mac[] = {0x40, 0x22, 0xD8, 0x5E, 0x6D, 0x04};
 uint8_t receiver_mac[] = {0x08, 0xB6, 0x1F, 0xB9, 0x2B, 0xE4};
 
 bool eventFlag = false;
 bool start = LOW;
 bool state = LOW;
 bool prevState = LOW;
-uint8_t eventCount = 0;
+uint8_t i = 0;
 uint8_t data[2];
 uint8_t lum = MIN_LUM;
 uint8_t delayTime = 1;
+uint8_t lumArr[MAX_EVENT_CNT]  = {0,       MID_LUM, MAX_LUM, MID_LUM, MIN_LUM, MID_LUM, MAX_LUM, MID_LUM, MIN_LUM, MID_LUM, 15,      MID_LUM,
+                                  MIN_LUM, MID_LUM, MAX_LUM, 12,      MIN_LUM, 10,      10,      22,      MID_LUM, 3,       MID_LUM, 12,
+                                  22,      MID_LUM, 0};
+uint16_t timeArr[MAX_EVENT_CNT] = {2,       20,      61,     108,     137,     157,     190,     235,     267,     322,     358,     408,
+                                  428,     448,     482,     524,     586,     625,     626,     668,     701,     729,     745,     804,
+                                  824,     886,     956};
 
 // Monitoring
 unsigned long lastMonitorTime = 0;
 unsigned long MonitorDelay = 1000;
+
+// delayTime calculation is dependent on the dimmer resolution, at 13 bits (2^13=8192) 1% is ~82 steps, so:
+// delayTime = (duration / percent_change) / 82
+// example: for 60 seconds and 34% change, (60 / 34) / 82 = 21 milliseconds
+// Other way around: delayTime = ((duration * 100) / (percent_change * 2^13))
+uint8_t DelayCalc(uint8_t duration, uint8_t percent_change) {
+    float delayTimeMillis = (1000 * ((float)duration * 100) / ((float)percent_change * pow(2, 13)));
+    // Serial.println("Delay time in milliseconds: " + String(delayTimeMillis));
+    return (uint8_t)round(delayTimeMillis);
+}
+
 
 void setup() {
     Serial.begin(115200);
@@ -57,88 +73,35 @@ void setup() {
     Serial.println("Default delay is: " + String(delayTime));
 }
 
-// delayTime calculation is dependent on the dimmer resolution, at 13 bits (2^13=8192) 1% is ~82 steps, so:
-// delayTime = (duration / percent_change) / 82
-// example: for 60 seconds and 34% change, (60 / 34) / 82 = 21 milliseconds
-
 void loop() {
     start = digitalRead(START_INPUT_PIN); // read state from start pin
 
     state = digitalRead(QUE_INPUT_PIN); // read state from que pin
-    // Set direction when state changes
-    if ((state == HIGH) && (prevState == LOW)) {
-        eventFlag = true;
-        eventCount++;
-        Serial.println("State change from LOW to HIGH");
-        if (eventCount == 1) {
-            lum = MAX_LUM;
-            delayTime = 21; // for 59 secs and 34% change
-        } else if (eventCount == 3) {
-            lum = MAX_LUM;
-            delayTime = 19; // for 53 secs and 34% change
-        } else if (eventCount == 5) {
-            lum = MAX_LUM;
-            delayTime = 21;
-        } else if (eventCount == 7) {
-            lum = MAX_LUM;
-            delayTime = 19;
-        } else if (eventCount == 9) {
-            lum = MAX_LUM;
-            delayTime = 25; // for 70 secs and 34% change
-        } else if (eventCount == 11) {
-            lum = MAX_LUM;
-            delayTime = 16; // for 45 secs and 34% change 
-        } else if (eventCount == 13) {
-            lum = MAX_LUM;
-            delayTime = 23; // for 64 secs and 34% change
-        }
-    } else if ((state == LOW) && (prevState == HIGH)) {
-        eventFlag = true;
-        eventCount++;
-        Serial.println("State change from HIGH to LOW");
-        if (eventCount == 2) {
-            lum = MIN_LUM;
-            delayTime = 27; // for 76 secs and 34% change
-        } else if (eventCount == 4) {
-            lum = MIN_LUM;
-            delayTime = 27;
-        } else if (eventCount == 6) {
-            lum = MIN_LUM;
-            delayTime = 35; // for 100 secs and 34% change
-        } else if (eventCount == 8) {
-            lum = MIN_LUM;
-            delayTime = 35;
-        } else if (eventCount == 10) {
-            lum = MIN_LUM;
-            delayTime = 21;
-        } else if (eventCount == 12) {
-            lum = MIN_LUM;
-            delayTime = 13; // for 37 secs and 34% change
-        } else if (eventCount == 14) {
-            lum = MIN_LUM;
-            delayTime = 30; // for 85 secs and 34% change
-        }
-    }
-    // Send data at eventFlag
-    if (eventFlag) {
-        eventFlag = false;
+    
+    if (state != prevState) {
+        Serial.println("State change detected.");
+        i++;
+        Serial.println("Event count: " + String(i));
+        lum = lumArr[i];
+        uint8_t duration = timeArr[i] - timeArr[i-1];
+        uint8_t percent_change = (uint8_t)(abs((int8_t)lumArr[i] - (int8_t)lumArr[i-1]));
+        Serial.println("Duration is: " + String(duration));
+        Serial.println("Percent change is: " + String(percent_change));
+        delayTime = DelayCalc(duration, percent_change);
         data[0] = lum;
         data[1] = delayTime;
         ESPNow.send_message(receiver_mac, data, 2);
-        Serial.println("sent lum is: " + String(lum));
-        Serial.println("sent delay is: " + String(delayTime));
-        Serial.println("Event count: " + String(eventCount));
     }
 
-    if ((eventCount >= MAX_EVENT_CNT) || (start == HIGH)) {
+    if ((i >= MAX_EVENT_CNT) || (start == HIGH)) {
         Serial.println("Event count reached maximum or start IO is high. restarting.");
-        eventCount = 0;
+        i = 0;
         data[0] = MIN_LUM;
         data[1] = 1;
         ESPNow.send_message(receiver_mac, data, 2);
         Serial.println("sent lum is: " + String(MIN_LUM));
         Serial.println("sent delay is: " + String(1));
-        Serial.println("Event count: " + String(eventCount));
+        Serial.println("Event count: " + String(i));
     }
 
     // Update previous state
@@ -146,9 +109,10 @@ void loop() {
 
     // Monitoring, not a must, just for debugging
     if((millis() - lastMonitorTime) > MonitorDelay) {
-        Serial.print("ESP Now sender event count: "); Serial.println(eventCount);
+        Serial.print("ESP Now sender event count: "); Serial.println(i);
         lastMonitorTime = millis();
     }
+
     // Delay to slow things down
     delay(1);
 }
