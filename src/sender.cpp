@@ -29,12 +29,12 @@ uint8_t i = 0;
 uint8_t data[2];
 uint8_t lum = MIN_LUM;
 uint8_t delayTime = 1;
-uint8_t lumArr[MAX_EVENT_CNT]  = {MIN_LUM, MID_LUM, MAX_LUM, MID_LUM, MIN_LUM, MID_LUM, MAX_LUM, MID_LUM, MIN_LUM, MID_LUM, 20,      MID_LUM,
-                                  MIN_LUM, MID_LUM, MAX_LUM, 12,      MID_LUM, MIN_LUM, MID_LUM, 22,      MID_LUM, MIN_LUM, MID_LUM, 12,
-                                  20,      MID_LUM, MIN_LUM, MIN_LUM};
-uint16_t timeArr[MAX_EVENT_CNT] = {2,       20,      61,     118,     137,     157,     190,     235,     267,     287,     322,     408,
-                                  428,     442,     482,     524,     586,     606,     626,     668,     711,     729,     745,     795,
-                                  824,     886,     956,     956};
+uint8_t lumArr[MAX_EVENT_CNT]  = {0,       MID_LUM, MAX_LUM, MID_LUM, MIN_LUM, MID_LUM, MAX_LUM, MID_LUM, MIN_LUM, MID_LUM, 15,      MID_LUM,
+                                  MIN_LUM, MID_LUM, MAX_LUM, 12,      MIN_LUM, 10,      10,      22,      MID_LUM, 3,       MID_LUM, 12,
+                                  22,      MID_LUM, 0};
+uint16_t timeArr[MAX_EVENT_CNT] = {2,       20,      61,     108,     137,     157,     190,     235,     267,     322,     358,     408,
+                                  428,     448,     482,     524,     586,     625,     626,     668,     701,     729,     745,     804,
+                                  824,     886,     956};
 
 // Monitoring
 unsigned long lastMonitorTime = 0;
